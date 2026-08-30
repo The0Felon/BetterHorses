@@ -5,7 +5,6 @@ import me.luisgamedev.betterhorses.api.BetterHorseKeys;
 import me.luisgamedev.betterhorses.api.BetterHorsesAPI;
 import me.luisgamedev.betterhorses.api.events.BetterHorseSpawnEvent;
 import me.luisgamedev.betterhorses.language.LanguageManager;
-import me.luisgamedev.betterhorses.training.TrainingManager;
 import me.luisgamedev.betterhorses.utils.PermissionUtils;
 import me.luisgamedev.betterhorses.utils.SupportedMountType;
 import org.bukkit.Material;
@@ -49,19 +48,15 @@ public class RightClickListener implements Listener {
         }
 
         ItemMeta meta = item.getItemMeta();
-        TrainingManager.ensureTrainingData(meta.getPersistentDataContainer());
-        item.setItemMeta(meta);
-
         boolean hasStoredChest = meta.getPersistentDataContainer().has(BetterHorseKeys.CHEST_CONTENTS, PersistentDataType.STRING);
         Double health = meta.getPersistentDataContainer().get(BetterHorseKeys.HEALTH, PersistentDataType.DOUBLE);
         Double speed = meta.getPersistentDataContainer().get(BetterHorseKeys.SPEED, PersistentDataType.DOUBLE);
         Double jump = meta.getPersistentDataContainer().get(BetterHorseKeys.JUMP, PersistentDataType.DOUBLE);
-        String gender = meta.getPersistentDataContainer().get(BetterHorseKeys.GENDER, PersistentDataType.STRING);
         String mountTypeName = meta.getPersistentDataContainer().get(BetterHorseKeys.MOUNT_TYPE, PersistentDataType.STRING);
         SupportedMountType mountType = SupportedMountType.fromNameOrDefault(mountTypeName);
         String mountName = mountType.getDisplayName(lang, player);
 
-        if (health == null || speed == null || jump == null || gender == null || !mountType.isEnabled(config)) {
+        if (health == null || speed == null || jump == null || !mountType.isEnabled(config)) {
             lang.sendFormatted(player, "messages.invalid-horse-data", "%mount%", mountName);
             return;
         }
@@ -77,11 +72,8 @@ public class RightClickListener implements Listener {
         }
 
         BetterHorsesAPI.callSpawnEvent(horse, item.clone(), BetterHorseSpawnEvent.SpawnCause.ITEM);
-        if (!horse.getPersistentDataContainer().has(BetterHorseKeys.UNDEAD_SKELETON, PersistentDataType.BYTE)) {
-            TrainingManager.recalculateAndApplyBonuses(horse);
-        }
+        BetterHorsesAPI.recalculateAndApplyBonuses(horse);
 
-        item.setAmount(hasStoredChest && item.getAmount() > 1 ? 0 : item.getAmount() - 1);
         lang.sendFormatted(player, "messages.horse-respawned", "%mount%", mountName);
     }
 }

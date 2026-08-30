@@ -846,6 +846,10 @@ public class BetterHorsesAPI {
         return cancelled;
     }
 
+    public static void recalculateAndApplyBonuses(AbstractHorse horse) {
+        TrainingManager.recalculateAndApplyBonuses(horse);
+    }
+
     private static String formatTraitName(String raw) {
         LanguageManager lang = BetterHorses.getInstance().getLang();
         String path = "traits." + raw.toLowerCase();
