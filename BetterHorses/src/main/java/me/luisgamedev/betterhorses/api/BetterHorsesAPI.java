@@ -81,7 +81,7 @@ public class BetterHorsesAPI {
         data.set(BetterHorseKeys.CURRENT_HEALTH, PersistentDataType.DOUBLE, health);
         data.set(BetterHorseKeys.SPEED, PersistentDataType.DOUBLE, speed);
         data.set(BetterHorseKeys.JUMP, PersistentDataType.DOUBLE, jump);
-        if(owner != null) {
+        if (owner != null) {
             data.set(BetterHorseKeys.OWNER, PersistentDataType.STRING, owner.getUniqueId().toString());
         }
         data.set(BetterHorseKeys.NAME, PersistentDataType.STRING, (name == null ? "" : name).replace(ChatColor.GOLD.toString(), ""));
@@ -142,7 +142,7 @@ public class BetterHorsesAPI {
         meta.setDisplayName(formatHorseItemName(lang, owner, name));
         item.setItemMeta(meta);
 
-        if(targetInventory != null) {
+        if (targetInventory != null) {
             plugin.debugLog("API_CREATE_ITEM", "INVENTORY", true, "Adding horse item to target inventory.");
             HashMap<Integer, ItemStack> leftovers = targetInventory.addItem(item);
             if (!leftovers.isEmpty() && dropIfFull) {
@@ -275,7 +275,8 @@ public class BetterHorsesAPI {
             try {
                 h.setStyle(Horse.Style.valueOf(styleStr));
                 h.setColor(Horse.Color.valueOf(colorStr));
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         if (saddleStr != null) {
@@ -291,7 +292,7 @@ public class BetterHorsesAPI {
 
         horse.addPassenger(player);
 
-        HorseManager.getInstance().setHorse(player.getUniqueId(), horse);
+        HorseManager.getInstance().setHorse(player.getUniqueId(), horse, item);
         return horse;
     }
 
@@ -700,7 +701,8 @@ public class BetterHorsesAPI {
     private static boolean isDirectLoreLineToken(String rawPart) {
         String part = rawPart == null ? "" : rawPart.trim().toLowerCase();
         return switch (part) {
-            case "gender", "health", "speed", "jump", "growth", "trait", "neutered", "training", "blank", "riding", "brushing", "feeding" -> true;
+            case "gender", "health", "speed", "jump", "growth", "trait", "neutered", "training", "blank", "riding",
+                 "brushing", "feeding" -> true;
             default -> part.startsWith("literal:");
         };
     }
@@ -723,10 +725,12 @@ public class BetterHorsesAPI {
         List<String> sectionLines = new ArrayList<>();
 
         switch (part) {
-            case "health" -> sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-health", "%value%", String.format("%.2f", currentHealth), "%max%", String.format("%.2f", maxHealth)));
+            case "health" ->
+                    sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-health", "%value%", String.format("%.2f", currentHealth), "%max%", String.format("%.2f", maxHealth)));
             case "speed" -> sectionLines.add(formatStatLoreLine(config, lang, player, true, speed));
             case "jump" -> sectionLines.add(formatStatLoreLine(config, lang, player, false, jump));
-            case "growth" -> sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-growth", "%value%", String.format("%d", growth)));
+            case "growth" ->
+                    sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-growth", "%value%", String.format("%d", growth)));
             case "trait" -> {
                 if (trait != null && !trait.isBlank()) {
                     sectionLines.add(ChatColor.GOLD + lang.getFormattedRaw(player, "messages.trait-line", "%trait%", formatTraitName(trait)));

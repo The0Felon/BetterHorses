@@ -5,9 +5,11 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.AbstractHorse;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -109,5 +111,18 @@ public final class BetterHorse {
             attr.setBaseValue(value);
         }
         handle.getPersistentDataContainer().set(key, PersistentDataType.DOUBLE, value);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BetterHorse that = (BetterHorse) o;
+        return Objects.equals(handle.getUniqueId(), that.handle.getUniqueId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(handle.getUniqueId());
     }
 }

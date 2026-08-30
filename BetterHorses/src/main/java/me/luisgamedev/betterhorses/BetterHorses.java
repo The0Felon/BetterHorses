@@ -247,7 +247,7 @@ public class BetterHorses extends JavaPlugin {
         pluginManager.registerEvents(new HorseItemBlockerListener(), this);
         pluginManager.registerEvents(new HorseMountListener(), this);
         pluginManager.registerEvents(new HorsePermissionListener(), this);
-        pluginManager.registerEvents(new HorseManager(), this);
+        pluginManager.registerEvents(HorseManager.getInstance(), this);
         pluginManager.registerEvents(new HorseInventoryBlockerListener(), this);
 
         debugLog("LISTENER", "REGISTER_BASE", true, "Registered core horse listeners.");
