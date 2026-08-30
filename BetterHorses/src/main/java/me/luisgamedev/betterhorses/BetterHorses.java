@@ -240,7 +240,6 @@ public class BetterHorses extends JavaPlugin {
 
         pluginManager.registerEvents(new HorseSpawnListener(), this);
         pluginManager.registerEvents(new HorseBreedListener(), this);
-        pluginManager.registerEvents(new HorseFeedListener(), this);
         pluginManager.registerEvents(new HorseItemBlockerListener(), this);
         pluginManager.registerEvents(new HorseMountListener(), this);
         pluginManager.registerEvents(new HorsePermissionListener(), this);
@@ -250,11 +249,6 @@ public class BetterHorses extends JavaPlugin {
         if (config.getBoolean("training.enabled", true) && config.getBoolean("training.categories.riding.enabled", true)) {
             pluginManager.registerEvents(new HorseTrainingRidingListener(), this);
             debugLog("LISTENER", "REGISTER", true, "Registered HorseTrainingRidingListener.");
-        }
-
-        if (config.getBoolean("training.enabled", true) && config.getBoolean("training.categories.brushing.enabled", true)) {
-            pluginManager.registerEvents(new HorseTrainingBrushingListener(), this);
-            debugLog("LISTENER", "REGISTER", true, "Registered HorseTrainingBrushingListener.");
         }
 
         if (config.getBoolean("settings.allow-rightclick-spawn", true)) {

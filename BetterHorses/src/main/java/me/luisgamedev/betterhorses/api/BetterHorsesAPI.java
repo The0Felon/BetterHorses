@@ -397,10 +397,6 @@ public class BetterHorsesAPI {
         itemData.set(BetterHorseKeys.BASE_SPEED, PersistentDataType.DOUBLE, data.getOrDefault(BetterHorseKeys.BASE_SPEED, PersistentDataType.DOUBLE, speed));
         itemData.set(BetterHorseKeys.BASE_JUMP, PersistentDataType.DOUBLE, data.getOrDefault(BetterHorseKeys.BASE_JUMP, PersistentDataType.DOUBLE, jump));
         itemData.set(BetterHorseKeys.TRAINING_RIDING_UNITS, PersistentDataType.DOUBLE, data.getOrDefault(BetterHorseKeys.TRAINING_RIDING_UNITS, PersistentDataType.DOUBLE, 0.0));
-        itemData.set(BetterHorseKeys.TRAINING_BRUSHING_UNITS, PersistentDataType.DOUBLE, data.getOrDefault(BetterHorseKeys.TRAINING_BRUSHING_UNITS, PersistentDataType.DOUBLE, 0.0));
-        itemData.set(BetterHorseKeys.TRAINING_FEEDING_UNITS, PersistentDataType.DOUBLE, data.getOrDefault(BetterHorseKeys.TRAINING_FEEDING_UNITS, PersistentDataType.DOUBLE, 0.0));
-        itemData.set(BetterHorseKeys.TRAINING_BRUSH_COOLDOWN, PersistentDataType.LONG, data.getOrDefault(BetterHorseKeys.TRAINING_BRUSH_COOLDOWN, PersistentDataType.LONG, 0L));
-        itemData.set(BetterHorseKeys.TRAINING_FEED_COOLDOWN, PersistentDataType.LONG, data.getOrDefault(BetterHorseKeys.TRAINING_FEED_COOLDOWN, PersistentDataType.LONG, 0L));
 
         String ownerUUID = ownerOverride != null
                 ? ownerOverride.getUniqueId().toString()

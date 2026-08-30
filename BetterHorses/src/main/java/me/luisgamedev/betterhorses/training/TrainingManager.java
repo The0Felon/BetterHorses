@@ -48,30 +48,6 @@ public final class TrainingManager {
         recalculateAndApplyBonuses(horse);
     }
 
-    public static void addBrushingUnits(AbstractHorse horse, double units) {
-        if (units <= 0) return;
-        FileConfiguration config = BetterHorses.getInstance().getConfig();
-        if (!isTrainingEnabled(config) || !isCategoryEnabled(config, "brushing")) return;
-
-        PersistentDataContainer data = horse.getPersistentDataContainer();
-        ensureTrainingData(data);
-        double current = data.getOrDefault(BetterHorseKeys.TRAINING_BRUSHING_UNITS, PersistentDataType.DOUBLE, 0.0);
-        data.set(BetterHorseKeys.TRAINING_BRUSHING_UNITS, PersistentDataType.DOUBLE, current + units);
-        recalculateAndApplyBonuses(horse);
-    }
-
-    public static void addFeedingUnits(AbstractHorse horse, double units) {
-        if (units <= 0) return;
-        FileConfiguration config = BetterHorses.getInstance().getConfig();
-        if (!isTrainingEnabled(config) || !isCategoryEnabled(config, "feeding")) return;
-
-        PersistentDataContainer data = horse.getPersistentDataContainer();
-        ensureTrainingData(data);
-        double current = data.getOrDefault(BetterHorseKeys.TRAINING_FEEDING_UNITS, PersistentDataType.DOUBLE, 0.0);
-        data.set(BetterHorseKeys.TRAINING_FEEDING_UNITS, PersistentDataType.DOUBLE, current + units);
-        recalculateAndApplyBonuses(horse);
-    }
-
     public static void recalculateAndApplyBonuses(AbstractHorse horse) {
         FileConfiguration config = BetterHorses.getInstance().getConfig();
         PersistentDataContainer data = horse.getPersistentDataContainer();
@@ -84,16 +60,12 @@ public final class TrainingManager {
         double baseJump = data.getOrDefault(BetterHorseKeys.BASE_JUMP, PersistentDataType.DOUBLE, readAttribute(horse, AttributeResolver.horseJumpStrength()));
 
         double ridingPercent = getProgressPercent(config, data, "riding", BetterHorseKeys.TRAINING_RIDING_UNITS);
-        double brushingPercent = getProgressPercent(config, data, "brushing", BetterHorseKeys.TRAINING_BRUSHING_UNITS);
-        double feedingPercent = getProgressPercent(config, data, "feeding", BetterHorseKeys.TRAINING_FEEDING_UNITS);
 
         double speedBonusPerPercent = config.getDouble("training.categories.riding.bonus-percent-per-progress-percent", 0.2);
-        double jumpBonusPerPercent = config.getDouble("training.categories.brushing.bonus-percent-per-progress-percent", 0.2);
-        double healthBonusPerPercent = config.getDouble("training.categories.feeding.bonus-percent-per-progress-percent", 0.2);
 
         double boostedSpeed = baseSpeed * (1.0 + (ridingPercent * speedBonusPerPercent / 100.0));
-        double boostedJump = baseJump * (1.0 + (brushingPercent * jumpBonusPerPercent / 100.0));
-        double boostedHealth = baseHealth * (1.0 + (feedingPercent * healthBonusPerPercent / 100.0));
+        double boostedJump = baseJump;
+        double boostedHealth = baseHealth;
 
         setAttribute(horse, Attribute.GENERIC_MOVEMENT_SPEED, boostedSpeed);
         setAttribute(horse, AttributeResolver.horseJumpStrength(), boostedJump);
@@ -139,8 +111,6 @@ public final class TrainingManager {
         ensureTrainingData(data);
         NamespacedKey key = switch (category.toLowerCase()) {
             case "riding" -> BetterHorseKeys.TRAINING_RIDING_UNITS;
-            case "brushing" -> BetterHorseKeys.TRAINING_BRUSHING_UNITS;
-            case "feeding" -> BetterHorseKeys.TRAINING_FEEDING_UNITS;
             default -> null;
         };
 
@@ -155,8 +125,6 @@ public final class TrainingManager {
         String bar = progressBar(config, language, percent);
         String defaultFormat = switch (category.toLowerCase()) {
             case "riding" -> "&7Riding: %bar% &b%percent%%";
-            case "brushing" -> "&7Brushing: %bar% &b%percent%%";
-            case "feeding" -> "&7Feeding: %bar% &b%percent%%";
             default -> "";
         };
 
@@ -174,8 +142,6 @@ public final class TrainingManager {
 
     public static void ensureTrainingData(PersistentDataContainer data) {
         ensureTrainingUnits(data, BetterHorseKeys.TRAINING_RIDING_UNITS);
-        ensureTrainingUnits(data, BetterHorseKeys.TRAINING_BRUSHING_UNITS);
-        ensureTrainingUnits(data, BetterHorseKeys.TRAINING_FEEDING_UNITS);
     }
 
     private static void ensureTrainingUnits(PersistentDataContainer data, NamespacedKey unitsKey) {
@@ -192,7 +158,7 @@ public final class TrainingManager {
         if (!config.getBoolean("training.lore.progress-bar.hide-on-complete", true) || !config.getBoolean("training.lore.progress-bar.combine-all-complete", true)) return false;
 
         ensureTrainingData(data);
-        String[] categories = {"riding", "brushing", "feeding"};
+        String[] categories = {"riding"};
         boolean hasEnabledCategory = false;
 
         for (String category : categories) {
@@ -203,8 +169,6 @@ public final class TrainingManager {
             hasEnabledCategory = true;
             NamespacedKey key = switch (category) {
                 case "riding" -> BetterHorseKeys.TRAINING_RIDING_UNITS;
-                case "brushing" -> BetterHorseKeys.TRAINING_BRUSHING_UNITS;
-                case "feeding" -> BetterHorseKeys.TRAINING_FEEDING_UNITS;
                 default -> null;
             };
 
