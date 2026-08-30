@@ -1,11 +1,13 @@
 package me.luisgamedev.betterhorses.horse;
 
+import me.luisgamedev.betterhorses.BetterHorses;
 import me.luisgamedev.betterhorses.api.BetterHorse;
 import me.luisgamedev.betterhorses.api.BetterHorsesAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
@@ -50,16 +52,9 @@ public class HorseManager implements Listener {
     }
 
     private void removeHorse(UUID playerUuid) {
-        Bukkit.getLogger().info("removeHorse çağrıldı: " + playerUuid);
-
         var horse = spawnedHorses.remove(playerUuid);
 
-        if (horse == null) {
-            Bukkit.getLogger().warning(
-                    "spawnedHorses içinde bulunamadı: " + playerUuid
-            );
-            return;
-        }
+        if (horse == null) return;
 
         UUID horseUuid = horse.getHandle().getUniqueId();
 
@@ -84,7 +79,7 @@ public class HorseManager implements Listener {
 
     private void updateHorseItem(BetterHorse horse) {
         if (horse == null) {
-            Bukkit.getLogger().warning("BetterHorse null!");
+            BetterHorses.getInstance().getLogger().warning("BetterHorse null!");
             return;
         }
 
@@ -93,13 +88,11 @@ public class HorseManager implements Listener {
         ItemStack item = horseItems.get(handleUuid);
 
         if (item == null) {
-            Bukkit.getLogger().warning("Horse item bulunamadı!");
+            BetterHorses.getInstance().getLogger().warning("Horse item bulunamadı!");
             return;
         }
 
-        item.setItemMeta(
-                BetterHorsesAPI.toItem(horse.getHandle(), null).getItemMeta()
-        );
+        item.setItemMeta(BetterHorsesAPI.toItem(horse.getHandle(), null).getItemMeta());
     }
 
     @EventHandler
@@ -109,5 +102,14 @@ public class HorseManager implements Listener {
 
         BetterHorse betterHorse = BetterHorsesAPI.getBetterHorse(horse);
         updateHorseItem(betterHorse);
+    }
+
+    @EventHandler
+    public void onEntityDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof AbstractHorse horse)) return;
+        if (!BetterHorsesAPI.isBetterHorse(horse)) return;
+
+        event.setDroppedExp(0);
+        event.getDrops().clear();
     }
 }

@@ -52,7 +52,6 @@ public class RightClickListener implements Listener {
         FileConfiguration config = BetterHorses.getInstance().getConfig();
         if (!config.getBoolean("settings.allow-rightclick-spawn")) return;
 
-
         String configuredItem = config.getString("settings.horse-item", "SADDLE");
         Material expectedMaterial = Material.getMaterial(configuredItem.toUpperCase());
         if (expectedMaterial == null || !expectedMaterial.isItem()) expectedMaterial = Material.SADDLE;
@@ -111,6 +110,6 @@ public class RightClickListener implements Listener {
             TrainingManager.recalculateAndApplyBonuses(horse);
         }
 
-        lang.sendFormatted(player, "messages.horse-respawned", "%mount%", mountName);
+        //lang.sendFormatted(player, "messages.horse-respawned", "%mount%", mountName);
     }
 }

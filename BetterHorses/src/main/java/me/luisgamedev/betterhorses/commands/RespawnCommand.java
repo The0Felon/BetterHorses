@@ -60,7 +60,7 @@ public class RespawnCommand {
 
         item.setAmount(hasStoredChest && item.getAmount() > 1 ? 0 : item.getAmount() - 1);
         BetterHorsesAPI.callSpawnEvent(horse, item, BetterHorseSpawnEvent.SpawnCause.ITEM);
-        lang.sendFormatted(player, "messages.horse-respawned", "%mount%", mountName);
+        //lang.sendFormatted(player, "messages.horse-respawned", "%mount%", mountName);
         plugin.debugLog("HORSE_RESPAWN", "COMPLETE", true, "Player " + player.getName() + " spawned " + mountName + ".");
         return true;
     }
