@@ -4,6 +4,7 @@ import jdk.jfr.Description;
 import me.luisgamedev.betterhorses.BetterHorses;
 import me.luisgamedev.betterhorses.api.events.BetterHorseDespawnEvent;
 import me.luisgamedev.betterhorses.api.events.BetterHorseSpawnEvent;
+import me.luisgamedev.betterhorses.horse.HorseManager;
 import me.luisgamedev.betterhorses.language.LanguageManager;
 import me.luisgamedev.betterhorses.traits.TraitRegistry;
 import me.luisgamedev.betterhorses.training.TrainingManager;
@@ -76,7 +77,6 @@ public class BetterHorsesAPI {
         int growth = growthStage > 10 || growthStage < 1 ? 10 : growthStage;
 
         PersistentDataContainer data = meta.getPersistentDataContainer();
-        data.set(BetterHorseKeys.GENDER, PersistentDataType.STRING, gender);
         data.set(BetterHorseKeys.HEALTH, PersistentDataType.DOUBLE, health);
         data.set(BetterHorseKeys.CURRENT_HEALTH, PersistentDataType.DOUBLE, health);
         data.set(BetterHorseKeys.SPEED, PersistentDataType.DOUBLE, speed);
@@ -129,7 +129,6 @@ public class BetterHorsesAPI {
                 lang,
                 owner,
                 data,
-                genderSymbol,
                 health,
                 health,
                 speed,
@@ -140,7 +139,7 @@ public class BetterHorsesAPI {
         );
 
         meta.setLore(lore);
-        meta.setDisplayName(formatHorseItemName(lang, owner, name, genderSymbol));
+        meta.setDisplayName(formatHorseItemName(lang, owner, name));
         item.setItemMeta(meta);
 
         if(targetInventory != null) {
@@ -175,7 +174,6 @@ public class BetterHorsesAPI {
         Double currentHealth = data.get(BetterHorseKeys.CURRENT_HEALTH, PersistentDataType.DOUBLE);
         Double speed = data.get(BetterHorseKeys.SPEED, PersistentDataType.DOUBLE);
         Double jump = data.get(BetterHorseKeys.JUMP, PersistentDataType.DOUBLE);
-        String gender = data.get(BetterHorseKeys.GENDER, PersistentDataType.STRING);
         String ownerUUID = player.getUniqueId().toString();
         String styleStr = data.get(BetterHorseKeys.STYLE, PersistentDataType.STRING);
         String colorStr = data.get(BetterHorseKeys.COLOR, PersistentDataType.STRING);
@@ -189,8 +187,6 @@ public class BetterHorsesAPI {
         Byte neutered = data.get(BetterHorseKeys.NEUTERED, PersistentDataType.BYTE);
         Integer storedStage = data.get(BetterHorseKeys.GROWTH_STAGE, PersistentDataType.INTEGER);
         String mountTypeName = data.get(BetterHorseKeys.MOUNT_TYPE, PersistentDataType.STRING);
-        long brushTrainingCooldown = data.getOrDefault(BetterHorseKeys.TRAINING_BRUSH_COOLDOWN, PersistentDataType.LONG, 0L);
-        long feedTrainingCooldown = data.getOrDefault(BetterHorseKeys.TRAINING_FEED_COOLDOWN, PersistentDataType.LONG, 0L);
         Long cooldown = data.has(BetterHorseKeys.COOLDOWN, PersistentDataType.LONG)
                 ? data.get(BetterHorseKeys.COOLDOWN, PersistentDataType.LONG)
                 : null;
@@ -199,7 +195,7 @@ public class BetterHorsesAPI {
         boolean undeadSkeleton = data.has(BetterHorseKeys.UNDEAD_SKELETON, PersistentDataType.BYTE);
         SupportedMountType mountType = undeadSkeleton ? SupportedMountType.SKELETON_HORSE : SupportedMountType.fromNameOrDefault(mountTypeName);
 
-        if (health == null || speed == null || jump == null || gender == null) {
+        if (health == null || speed == null || jump == null) {
             return null;
         }
 
@@ -243,6 +239,8 @@ public class BetterHorsesAPI {
         horse.setTamed(true);
         horse.setOwner((AnimalTamer) player);
 
+        horse.getInventory().setSaddle(new ItemStack(Material.SADDLE));
+
         PersistentDataContainer horseData = horse.getPersistentDataContainer();
         horseData.set(BetterHorseKeys.BASE_HEALTH, PersistentDataType.DOUBLE,
                 data.getOrDefault(BetterHorseKeys.BASE_HEALTH, PersistentDataType.DOUBLE, health));
@@ -252,15 +250,8 @@ public class BetterHorsesAPI {
                 data.getOrDefault(BetterHorseKeys.BASE_JUMP, PersistentDataType.DOUBLE, jump));
         horseData.set(BetterHorseKeys.TRAINING_RIDING_UNITS, PersistentDataType.DOUBLE,
                 data.getOrDefault(BetterHorseKeys.TRAINING_RIDING_UNITS, PersistentDataType.DOUBLE, 0.0));
-        horseData.set(BetterHorseKeys.TRAINING_BRUSHING_UNITS, PersistentDataType.DOUBLE,
-                data.getOrDefault(BetterHorseKeys.TRAINING_BRUSHING_UNITS, PersistentDataType.DOUBLE, 0.0));
-        horseData.set(BetterHorseKeys.TRAINING_FEEDING_UNITS, PersistentDataType.DOUBLE,
-                data.getOrDefault(BetterHorseKeys.TRAINING_FEEDING_UNITS, PersistentDataType.DOUBLE, 0.0));
-        horseData.set(BetterHorseKeys.TRAINING_BRUSH_COOLDOWN, PersistentDataType.LONG, brushTrainingCooldown);
-        horseData.set(BetterHorseKeys.TRAINING_FEED_COOLDOWN, PersistentDataType.LONG, feedTrainingCooldown);
 
         horseData.set(BetterHorseKeys.OWNER, PersistentDataType.STRING, ownerUUID);
-        horseData.set(BetterHorseKeys.GENDER, PersistentDataType.STRING, gender);
         horseData.set(BetterHorseKeys.MOUNT_TYPE, PersistentDataType.STRING, mountType.getEntityType().name());
         copyTextureData(data, horseData);
         copyUndeadData(data, horseData);
@@ -298,6 +289,9 @@ public class BetterHorsesAPI {
             }
         }
 
+        horse.addPassenger(player);
+
+        HorseManager.getInstance().setHorse(player.getUniqueId(), horse);
         return horse;
     }
 
@@ -314,19 +308,10 @@ public class BetterHorsesAPI {
                 .orElse(null);
         if (mountType == null) return null;
 
-        NamespacedKey genderKey = BetterHorseKeys.GENDER;
         NamespacedKey traitKey = BetterHorseKeys.TRAIT;
         NamespacedKey neuterKey = BetterHorseKeys.NEUTERED;
         NamespacedKey growthKey = BetterHorseKeys.GROWTH_STAGE;
         NamespacedKey cooldownKey = BetterHorseKeys.COOLDOWN;
-
-        String gender;
-        if (!data.has(genderKey, PersistentDataType.STRING)) {
-            gender = Math.random() < 0.5 ? "male" : "female";
-            data.set(genderKey, PersistentDataType.STRING, gender);
-        } else {
-            gender = data.getOrDefault(genderKey, PersistentDataType.STRING, "unknown");
-        }
 
         String trait = data.has(traitKey, PersistentDataType.STRING) ? data.get(traitKey, PersistentDataType.STRING) : null;
         boolean isNeutered = data.has(neuterKey, PersistentDataType.BYTE) && data.get(neuterKey, PersistentDataType.BYTE) == (byte) 1;
@@ -338,8 +323,6 @@ public class BetterHorsesAPI {
         } else {
             growthStage = 10;
         }
-
-        String genderSymbol = gender.equalsIgnoreCase("male") ? lang.getRaw(ownerOverride, "messages.gender-male") : gender.equalsIgnoreCase("female") ? lang.getRaw(ownerOverride, "messages.gender-female") : "?";
 
         TraitRegistry.revertDashBoostIfActive(horse);
         TrainingManager.ensureBaseStats(horse);
@@ -366,16 +349,14 @@ public class BetterHorsesAPI {
         if (meta == null) return null;
         PersistentDataContainer itemData = meta.getPersistentDataContainer();
 
-        itemData.set(genderKey, PersistentDataType.STRING, gender);
         String name = horse.getCustomName() != null ? horse.getCustomName() : mountType.getDisplayName(lang, ownerOverride);
-        meta.setDisplayName(formatHorseItemName(lang, ownerOverride, name, genderSymbol));
+        meta.setDisplayName(formatHorseItemName(lang, ownerOverride, name));
 
         List<String> lore = buildHorseLore(
                 plugin.getConfig(),
                 lang,
                 ownerOverride,
                 data,
-                genderSymbol,
                 currentHealth,
                 maxHealth,
                 speed,
@@ -591,9 +572,9 @@ public class BetterHorsesAPI {
         }
     }
 
-    private static String formatHorseItemName(LanguageManager lang, @Nullable Player player, @Nullable String name, String genderSymbol) {
+    private static String formatHorseItemName(LanguageManager lang, @Nullable Player player, @Nullable String name) {
         String displayName = name == null || name.isBlank() ? lang.getRaw(player, "messages.horse") : name;
-        return lang.getFormattedRaw(player, "messages.horse-item-name", "%name%", displayName, "%gender%", genderSymbol);
+        return lang.getFormattedRaw(player, "messages.horse-item-name", "%name%", displayName);
     }
 
     private static @Nullable ItemStack restoreArmorItem(String armorMaterial, @Nullable String serializedArmor) {
@@ -616,7 +597,6 @@ public class BetterHorsesAPI {
             LanguageManager lang,
             @Nullable Player player,
             PersistentDataContainer data,
-            String genderSymbol,
             double currentHealth,
             double maxHealth,
             double speed,
@@ -638,7 +618,6 @@ public class BetterHorsesAPI {
                 lang,
                 player,
                 data,
-                genderSymbol,
                 currentHealth,
                 maxHealth,
                 speed,
@@ -682,7 +661,6 @@ public class BetterHorsesAPI {
             LanguageManager lang,
             @Nullable Player player,
             PersistentDataContainer data,
-            String genderSymbol,
             double currentHealth,
             double maxHealth,
             double speed,
@@ -693,7 +671,7 @@ public class BetterHorsesAPI {
     ) {
         if (node instanceof List<?> list) {
             for (Object child : list) {
-                appendLoreLayoutNodes(child, lore, config, lang, player, data, genderSymbol, currentHealth, maxHealth, speed, jump, growth, trait, isNeutered);
+                appendLoreLayoutNodes(child, lore, config, lang, player, data, currentHealth, maxHealth, speed, jump, growth, trait, isNeutered);
             }
             return;
         }
@@ -701,21 +679,21 @@ public class BetterHorsesAPI {
         if (node instanceof Map<?, ?> map) {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
                 String rawPart = String.valueOf(entry.getKey());
-                List<String> sectionLines = resolveHorseLoreLines(rawPart, config, lang, player, data, genderSymbol, currentHealth, maxHealth, speed, jump, growth, trait, isNeutered);
+                List<String> sectionLines = resolveHorseLoreLines(rawPart, config, lang, player, data, currentHealth, maxHealth, speed, jump, growth, trait, isNeutered);
                 boolean parentIsGroup = sectionLines.isEmpty() && !isDirectLoreLineToken(rawPart);
                 if (!sectionLines.isEmpty()) {
                     lore.addAll(sectionLines);
                 }
 
                 if (!sectionLines.isEmpty() || parentIsGroup) {
-                    appendLoreLayoutNodes(entry.getValue(), lore, config, lang, player, data, genderSymbol, currentHealth, maxHealth, speed, jump, growth, trait, isNeutered);
+                    appendLoreLayoutNodes(entry.getValue(), lore, config, lang, player, data, currentHealth, maxHealth, speed, jump, growth, trait, isNeutered);
                 }
             }
             return;
         }
 
         if (node instanceof String rawPart) {
-            lore.addAll(resolveHorseLoreLines(rawPart, config, lang, player, data, genderSymbol, currentHealth, maxHealth, speed, jump, growth, trait, isNeutered));
+            lore.addAll(resolveHorseLoreLines(rawPart, config, lang, player, data, currentHealth, maxHealth, speed, jump, growth, trait, isNeutered));
         }
     }
 
@@ -733,7 +711,6 @@ public class BetterHorsesAPI {
             LanguageManager lang,
             @Nullable Player player,
             PersistentDataContainer data,
-            String genderSymbol,
             double currentHealth,
             double maxHealth,
             double speed,
@@ -746,7 +723,6 @@ public class BetterHorsesAPI {
         List<String> sectionLines = new ArrayList<>();
 
         switch (part) {
-            case "gender" -> sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-gender", "%value%", genderSymbol));
             case "health" -> sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-health", "%value%", String.format("%.2f", currentHealth), "%max%", String.format("%.2f", maxHealth)));
             case "speed" -> sectionLines.add(formatStatLoreLine(config, lang, player, true, speed));
             case "jump" -> sectionLines.add(formatStatLoreLine(config, lang, player, false, jump));

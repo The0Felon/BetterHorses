@@ -102,7 +102,6 @@ public final class HorseInfoCommand {
         placeholders.put("%speed%", speed == null ? "<none>" : String.format("%.4f", speed.getBaseValue()));
         placeholders.put("%jump%", jump == null ? "<none>" : String.format("%.4f", jump.getBaseValue()));
         placeholders.put("%trait%", data.getOrDefault(BetterHorseKeys.TRAIT, PersistentDataType.STRING, "<none>"));
-        placeholders.put("%gender%", data.getOrDefault(BetterHorseKeys.GENDER, PersistentDataType.STRING, "<none>"));
         placeholders.put("%growth_stage%", String.valueOf(data.getOrDefault(BetterHorseKeys.GROWTH_STAGE, PersistentDataType.INTEGER, -1)));
         placeholders.put("%neutered%", resolveBooleanFlag(data, BetterHorseKeys.NEUTERED));
         placeholders.put("%persistent_data%", renderPersistentData(data));
@@ -230,9 +229,7 @@ public final class HorseInfoCommand {
         if (key.equals(BetterHorseKeys.NEUTERED)) {
             return resolveBooleanFlag(container, key);
         }
-        if (key.equals(BetterHorseKeys.TRAINING_BRUSH_COOLDOWN)
-                || key.equals(BetterHorseKeys.TRAINING_FEED_COOLDOWN)
-                || key.equals(BetterHorseKeys.COOLDOWN)) {
+        if (key.equals(BetterHorseKeys.COOLDOWN)) {
             return resolveTimestamp(container, key);
         }
         if (container.getKeys().contains(key)) {
@@ -275,14 +272,6 @@ public final class HorseInfoCommand {
     private static long resolveCooldownMillis(FileConfiguration config, NamespacedKey key) {
         if (key.equals(BetterHorseKeys.COOLDOWN)) {
             return Math.max(0L, config.getLong("settings.breeding-cooldown", 0L) * 1000L);
-        }
-
-        if (key.equals(BetterHorseKeys.TRAINING_BRUSH_COOLDOWN)) {
-            return Math.max(0L, config.getLong("training.categories.brushing.cooldown-seconds", 180L) * 1000L);
-        }
-
-        if (key.equals(BetterHorseKeys.TRAINING_FEED_COOLDOWN)) {
-            return Math.max(0L, config.getLong("training.categories.feeding.cooldown-seconds", 0L) * 1000L);
         }
 
         return 0L;

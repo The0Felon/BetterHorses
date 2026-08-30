@@ -8,6 +8,7 @@ import me.luisgamedev.betterhorses.language.LanguageManager;
 import me.luisgamedev.betterhorses.training.TrainingManager;
 import me.luisgamedev.betterhorses.utils.PermissionUtils;
 import me.luisgamedev.betterhorses.utils.SupportedMountType;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.AbstractHorse;
@@ -21,7 +22,20 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.UUID;
+
 public class RightClickListener implements Listener {
+    private HashSet<UUID> clickedThisTick = new HashSet<>();
+    private HashMap<UUID, Integer> cooldowns = new HashMap<>();
+
+    public RightClickListener() {
+        Bukkit.getScheduler().runTaskTimer(BetterHorses.getInstance(), () -> {
+            clickedThisTick.clear();
+            cooldowns.entrySet().removeIf(entry -> Bukkit.getCurrentTick() > entry.getValue());
+        }, 20, 1);
+    }
 
     @EventHandler
     public void onRightClick(PlayerInteractEvent event) {
@@ -38,6 +52,7 @@ public class RightClickListener implements Listener {
         FileConfiguration config = BetterHorses.getInstance().getConfig();
         if (!config.getBoolean("settings.allow-rightclick-spawn")) return;
 
+
         String configuredItem = config.getString("settings.horse-item", "SADDLE");
         Material expectedMaterial = Material.getMaterial(configuredItem.toUpperCase());
         if (expectedMaterial == null || !expectedMaterial.isItem()) expectedMaterial = Material.SADDLE;
@@ -48,6 +63,7 @@ public class RightClickListener implements Listener {
             return;
         }
 
+
         ItemMeta meta = item.getItemMeta();
         TrainingManager.ensureTrainingData(meta.getPersistentDataContainer());
         item.setItemMeta(meta);
@@ -56,15 +72,29 @@ public class RightClickListener implements Listener {
         Double health = meta.getPersistentDataContainer().get(BetterHorseKeys.HEALTH, PersistentDataType.DOUBLE);
         Double speed = meta.getPersistentDataContainer().get(BetterHorseKeys.SPEED, PersistentDataType.DOUBLE);
         Double jump = meta.getPersistentDataContainer().get(BetterHorseKeys.JUMP, PersistentDataType.DOUBLE);
-        String gender = meta.getPersistentDataContainer().get(BetterHorseKeys.GENDER, PersistentDataType.STRING);
         String mountTypeName = meta.getPersistentDataContainer().get(BetterHorseKeys.MOUNT_TYPE, PersistentDataType.STRING);
         SupportedMountType mountType = SupportedMountType.fromNameOrDefault(mountTypeName);
         String mountName = mountType.getDisplayName(lang, player);
 
-        if (health == null || speed == null || jump == null || gender == null || !mountType.isEnabled(config)) {
+        if (clickedThisTick.contains(player.getUniqueId())) return;
+        clickedThisTick.add(player.getUniqueId());
+
+        if (player.isInsideVehicle()) {
+            lang.send(player, "messages.already-mounted");
+            return;
+        }
+
+        if (health == null || speed == null || jump == null || !mountType.isEnabled(config)) {
             lang.sendFormatted(player, "messages.invalid-horse-data", "%mount%", mountName);
             return;
         }
+
+        if (cooldowns.containsKey(player.getUniqueId())) {
+            lang.send(player, "messages.cooldown");
+            return;
+        }
+
+        cooldowns.put(player.getUniqueId(), Bukkit.getCurrentTick() + (int) (0.5 * 20));
 
         AbstractHorse horse = BetterHorsesAPI.toHorse(item, player);
         if (horse == null) {
@@ -81,7 +111,6 @@ public class RightClickListener implements Listener {
             TrainingManager.recalculateAndApplyBonuses(horse);
         }
 
-        item.setAmount(hasStoredChest && item.getAmount() > 1 ? 0 : item.getAmount() - 1);
         lang.sendFormatted(player, "messages.horse-respawned", "%mount%", mountName);
     }
 }

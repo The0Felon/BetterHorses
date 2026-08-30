@@ -5,6 +5,10 @@ plugins {
 
 shadowJar {
     relocate 'net.kyori', 'me.luisgamedev.betterhorses.libs.kyori'
+
+    archiveBaseName.set('BetterHorses')
+    archiveClassifier.set('')
+    destinationDirectory.set(file('C:/Users/Mustafa/Desktop/Minecraft/SUNUCULAR (SİLME)/Miners/Miners/plugins'))
 }
 
 group = 'dev.luisgamedev'

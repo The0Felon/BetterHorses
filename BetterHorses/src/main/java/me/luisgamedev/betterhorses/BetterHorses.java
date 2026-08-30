@@ -7,6 +7,7 @@ import me.luisgamedev.betterhorses.commands.HorseCommand;
 import me.luisgamedev.betterhorses.commands.HorseCommandCompleter;
 import me.luisgamedev.betterhorses.commands.HorseCreateTabCompleter;
 import me.luisgamedev.betterhorses.growing.HorseGrowthManager;
+import me.luisgamedev.betterhorses.horse.HorseManager;
 import me.luisgamedev.betterhorses.language.LanguageManager;
 import me.luisgamedev.betterhorses.listeners.HorseMountListener;
 import me.luisgamedev.betterhorses.listeners.*;
@@ -41,11 +42,15 @@ public class BetterHorses extends JavaPlugin {
     @Override
     public void onDisable() {
         if(audiences != null) audiences.close();
+        HorseManager.getInstance().removeAll();
     }
 
     @Override
     public void onEnable() {
         instance = this;
+
+        HorseManager.getInstance().removeAllFromEntity();
+
         initializeConfigurationFiles();
         audiences = BukkitAudiences.create(this);
         debugLog("PLUGIN", "ENABLE_START", true, "Starting BetterHorses plugin bootstrap.");
@@ -239,10 +244,11 @@ public class BetterHorses extends JavaPlugin {
         FileConfiguration config = getConfig();
 
         pluginManager.registerEvents(new HorseSpawnListener(), this);
-        pluginManager.registerEvents(new HorseBreedListener(), this);
         pluginManager.registerEvents(new HorseItemBlockerListener(), this);
         pluginManager.registerEvents(new HorseMountListener(), this);
         pluginManager.registerEvents(new HorsePermissionListener(), this);
+        pluginManager.registerEvents(new HorseManager(), this);
+        pluginManager.registerEvents(new HorseInventoryBlockerListener(), this);
 
         debugLog("LISTENER", "REGISTER_BASE", true, "Registered core horse listeners.");
 

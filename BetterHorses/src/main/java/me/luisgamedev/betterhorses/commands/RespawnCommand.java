@@ -36,12 +36,11 @@ public class RespawnCommand {
         Double health = itemData.get(BetterHorseKeys.HEALTH, PersistentDataType.DOUBLE);
         Double speed = itemData.get(BetterHorseKeys.SPEED, PersistentDataType.DOUBLE);
         Double jump = itemData.get(BetterHorseKeys.JUMP, PersistentDataType.DOUBLE);
-        String gender = itemData.get(BetterHorseKeys.GENDER, PersistentDataType.STRING);
         String mountTypeName = itemData.get(BetterHorseKeys.MOUNT_TYPE, PersistentDataType.STRING);
         SupportedMountType mountType = SupportedMountType.fromNameOrDefault(mountTypeName);
         String mountName = mountType.getDisplayName(lang, player);
 
-        if (health == null || speed == null || jump == null || gender == null || !mountType.isEnabled(BetterHorses.getInstance().getConfig())) {
+        if (health == null || speed == null || jump == null || !mountType.isEnabled(BetterHorses.getInstance().getConfig())) {
             lang.sendFormatted(player, "messages.invalid-horse-data", "%mount%", mountName);
             plugin.debugLog("HORSE_RESPAWN", "DATA", false, "Invalid horse data for " + player.getName() + ".");
             return true;
