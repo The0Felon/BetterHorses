@@ -52,13 +52,20 @@ import java.util.Optional;
 
 public class BetterHorsesAPI {
 
+    // Keep this for backwards compatibility, route it to the new overloaded method
     @Description("Creates a horseitem and either returns the ItemStack or directly puts it into the provided Inventory")
     public static ItemStack createHorseItem(@Nonnull double health, @Nonnull double speed, @Nonnull double jump, @Nonnull String gender, @Nullable String name, @Nullable Player owner, @Nullable Inventory targetInventory, @Nullable boolean dropIfFull, @Nullable String traitOverride, @Nonnull boolean isNeutered, @Nonnull Integer growthStage, @Nullable SupportedMountType mountType) {
-        return createHorseItem(health, speed, jump, gender, name, owner, targetInventory, dropIfFull, traitOverride, isNeutered, growthStage, mountType, getConfiguredTextureData());
+        return createHorseItem(health, speed, jump, gender, name, owner, targetInventory, dropIfFull, traitOverride, isNeutered, growthStage, mountType, null, null, getConfiguredTextureData());
     }
 
+    // New overload allowing color and style without providing textureData directly
+    public static ItemStack createHorseItem(@Nonnull double health, @Nonnull double speed, @Nonnull double jump, @Nonnull String gender, @Nullable String name, @Nullable Player owner, @Nullable Inventory targetInventory, @Nullable boolean dropIfFull, @Nullable String traitOverride, @Nonnull boolean isNeutered, @Nonnull Integer growthStage, @Nullable SupportedMountType mountType, @Nullable String color, @Nullable String style) {
+        return createHorseItem(health, speed, jump, gender, name, owner, targetInventory, dropIfFull, traitOverride, isNeutered, growthStage, mountType, color, style, getConfiguredTextureData());
+    }
+
+    // Update the main method signature and its PersistentDataContainer logic
     @Description("Creates a horseitem with explicit texture/model references and either returns the ItemStack or directly puts it into the targetInventory if provided")
-    public static ItemStack createHorseItem(@Nonnull double health, @Nonnull double speed, @Nonnull double jump, @Nonnull String gender, @Nullable String name, @Nullable Player owner, @Nullable Inventory targetInventory, @Nullable boolean dropIfFull, @Nullable String traitOverride, @Nonnull boolean isNeutered, @Nonnull Integer growthStage, @Nullable SupportedMountType mountType, @Nullable HorseItemTextureData textureData) {
+    public static ItemStack createHorseItem(@Nonnull double health, @Nonnull double speed, @Nonnull double jump, @Nonnull String gender, @Nullable String name, @Nullable Player owner, @Nullable Inventory targetInventory, @Nullable boolean dropIfFull, @Nullable String traitOverride, @Nonnull boolean isNeutered, @Nonnull Integer growthStage, @Nullable SupportedMountType mountType, @Nullable String color, @Nullable String style, @Nullable HorseItemTextureData textureData) {
 
         BetterHorses plugin = BetterHorses.getInstance();
         LanguageManager lang = plugin.getLang();
@@ -85,8 +92,13 @@ public class BetterHorsesAPI {
             data.set(BetterHorseKeys.OWNER, PersistentDataType.STRING, owner.getUniqueId().toString());
         }
         data.set(BetterHorseKeys.NAME, PersistentDataType.STRING, (name == null ? "" : name).replace(ChatColor.GOLD.toString(), ""));
-        data.set(BetterHorseKeys.STYLE, PersistentDataType.STRING, Horse.Style.WHITE.name());
-        data.set(BetterHorseKeys.COLOR, PersistentDataType.STRING, Horse.Color.CREAMY.name());
+
+        // Dynamically assign Color and Style, falling back to defaults if null
+        String finalColor = color != null ? color : Horse.Color.CREAMY.name();
+        String finalStyle = style != null ? style : Horse.Style.WHITE.name();
+        data.set(BetterHorseKeys.STYLE, PersistentDataType.STRING, finalStyle);
+        data.set(BetterHorseKeys.COLOR, PersistentDataType.STRING, finalColor);
+
         data.set(BetterHorseKeys.GROWTH_STAGE, PersistentDataType.INTEGER, growth);
         data.set(BetterHorseKeys.MOUNT_TYPE, PersistentDataType.STRING, targetMountType.getEntityType().name());
         if (isNeutered) {
@@ -266,7 +278,10 @@ public class BetterHorsesAPI {
             horseData.set(BetterHorseKeys.COOLDOWN, PersistentDataType.LONG, cooldown);
         }
 
+        // custom name feature override
+
         if (customName != null && !customName.isBlank()) {
+            customName = "§6" + player.getName() + " §7Atı";
             horse.setCustomName(customName);
             horse.setCustomNameVisible(true);
         }
@@ -296,7 +311,7 @@ public class BetterHorsesAPI {
         return horse;
     }
 
-    public static @Nullable ItemStack toItem(@Nonnull AbstractHorse horse, @Nullable Player ownerOverride) {
+    public static @Nullable ItemStack toItem(@Nonnull AbstractHorse horse, @Nullable Player ownerOverride, @Nullable String displayNameOverride) {
         BetterHorses plugin = BetterHorses.getInstance();
         LanguageManager lang = plugin.getLang();
         PersistentDataContainer data = horse.getPersistentDataContainer();
@@ -350,8 +365,10 @@ public class BetterHorsesAPI {
         if (meta == null) return null;
         PersistentDataContainer itemData = meta.getPersistentDataContainer();
 
-        String name = horse.getCustomName() != null ? horse.getCustomName() : mountType.getDisplayName(lang, ownerOverride);
-        meta.setDisplayName(formatHorseItemName(lang, ownerOverride, name));
+        if (displayNameOverride == null) {
+            String name = horse.getCustomName() != null ? horse.getCustomName() : mountType.getDisplayName(lang, ownerOverride);
+            meta.setDisplayName(name);
+        } else meta.setDisplayName(displayNameOverride);
 
         List<String> lore = buildHorseLore(
                 plugin.getConfig(),
@@ -725,12 +742,12 @@ public class BetterHorsesAPI {
         List<String> sectionLines = new ArrayList<>();
 
         switch (part) {
-            case "health" ->
-                    sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-health", "%value%", String.format("%.2f", currentHealth), "%max%", String.format("%.2f", maxHealth)));
+            //case "health" ->
+            //        sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-health", "%value%", String.format("%.2f", currentHealth), "%max%", String.format("%.2f", maxHealth)));
             case "speed" -> sectionLines.add(formatStatLoreLine(config, lang, player, true, speed));
             case "jump" -> sectionLines.add(formatStatLoreLine(config, lang, player, false, jump));
-            case "growth" ->
-                    sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-growth", "%value%", String.format("%d", growth)));
+            //case "growth" ->
+            //        sectionLines.add(ChatColor.GRAY + lang.getFormattedRaw(player, "messages.lore-growth", "%value%", String.format("%d", growth)));
             case "trait" -> {
                 if (trait != null && !trait.isBlank()) {
                     sectionLines.add(ChatColor.GOLD + lang.getFormattedRaw(player, "messages.trait-line", "%trait%", formatTraitName(trait)));

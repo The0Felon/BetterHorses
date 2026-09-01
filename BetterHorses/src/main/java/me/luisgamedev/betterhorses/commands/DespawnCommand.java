@@ -63,7 +63,7 @@ public class DespawnCommand {
             return true;
         }
 
-        ItemStack item = BetterHorsesAPI.toItem(horse, player);
+        ItemStack item = BetterHorsesAPI.toItem(horse, player, null);
         if (item == null) {
             lang.send(player, "messages.cant-despawn");
             plugin.debugLog("HORSE_DESPAWN", "ITEM", false, "Failed converting horse to item for " + horse.getUniqueId() + ".");

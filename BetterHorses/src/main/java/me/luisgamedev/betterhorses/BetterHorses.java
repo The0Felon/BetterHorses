@@ -2,6 +2,8 @@ package me.luisgamedev.betterhorses;
 
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
+import com.felonnetwork.lootgrave.LootGrave;
+import me.luisgamedev.betterhorses.api.BetterHorsesAPI;
 import me.luisgamedev.betterhorses.commands.CustomHorseCommand;
 import me.luisgamedev.betterhorses.commands.HorseCommand;
 import me.luisgamedev.betterhorses.commands.HorseCommandCompleter;
@@ -41,7 +43,7 @@ public class BetterHorses extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if(audiences != null) audiences.close();
+        if (audiences != null) audiences.close();
         HorseManager.getInstance().removeAll();
     }
 
@@ -61,7 +63,7 @@ public class BetterHorses extends JavaPlugin {
         } else {
             getLogger().info(
                     "Please install ProtocolLib Version 5.3 for all features to work properly. " +
-                    "Running BetterHorses without ProtocolLib is no problem, but will result in some features being disabled."
+                            "Running BetterHorses without ProtocolLib is no problem, but will result in some features being disabled."
             );
         }
         languageManager = new LanguageManager(this, audiences);
@@ -78,6 +80,7 @@ public class BetterHorses extends JavaPlugin {
         getCommand("horsecreate").setTabCompleter(new HorseCreateTabCompleter());
 
         new HorseGrowthManager(this).start();
+        HorseManager.getInstance().start();
 
         Bukkit.getScheduler().runTaskTimer(
                 this,
@@ -85,6 +88,9 @@ public class BetterHorses extends JavaPlugin {
                 20L, // delay 1s
                 20L  // repeat every 1s
         );
+
+        LootGrave.getInstance().getDeathHandler().addKeeperFilterer(BetterHorsesAPI::isHorseItem);
+
         debugLog("PLUGIN", "ENABLE_COMPLETE", true, "BetterHorses plugin enabled successfully.");
     }
 
