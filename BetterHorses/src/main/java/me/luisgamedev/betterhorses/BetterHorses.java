@@ -76,6 +76,7 @@ public class BetterHorses extends JavaPlugin {
             horseCommand.setExecutor(new HorseCommand());
             applyHorseCommandAliases();
         }
+
         getCommand("horsecreate").setExecutor(new CustomHorseCommand());
         getCommand("horsecreate").setTabCompleter(new HorseCreateTabCompleter());
 

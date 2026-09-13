@@ -49,32 +49,32 @@ public class HorseCommand implements CommandExecutor {
         }
 
         switch (subcommand) {
-            case "spawn":
-                if (!player.hasPermission(PermissionUtils.SPAWN_COMMAND)) {
-                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse spawn");
-                    plugin.debugLog("HORSE_COMMAND", "SPAWN_PERMISSION", false,
-                            "Player " + player.getName() + " lacks betterhorses.spawn.command");
-                    return true;
-                }
-                return RespawnCommand.spawnHorseFromItem(player);
-
-            case "despawn":
-                if (!player.hasPermission(PermissionUtils.DESPAWN)) {
-                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse despawn");
-                    plugin.debugLog("HORSE_COMMAND", "DESPAWN_PERMISSION", false,
-                            "Player " + player.getName() + " lacks betterhorses.despawn");
-                    return true;
-                }
-                return DespawnCommand.despawnHorseToItem(player);
-
-            case "neuter":
-                if (!player.hasPermission("betterhorses.neuter")) {
-                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse neuter");
-                    plugin.debugLog("HORSE_COMMAND", "NEUTER_PERMISSION", false,
-                            "Player " + player.getName() + " lacks betterhorses.neuter");
-                    return true;
-                }
-                return HorseNeuterCommand.handle(player);
+//            case "spawn":
+//                if (!player.hasPermission(PermissionUtils.SPAWN_COMMAND)) {
+//                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse spawn");
+//                    plugin.debugLog("HORSE_COMMAND", "SPAWN_PERMISSION", false,
+//                            "Player " + player.getName() + " lacks betterhorses.spawn.command");
+//                    return true;
+//                }
+//                return RespawnCommand.spawnHorseFromItem(player);
+//
+//            case "despawn":
+//                if (!player.hasPermission(PermissionUtils.DESPAWN)) {
+//                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse despawn");
+//                    plugin.debugLog("HORSE_COMMAND", "DESPAWN_PERMISSION", false,
+//                            "Player " + player.getName() + " lacks betterhorses.despawn");
+//                    return true;
+//                }
+//                return DespawnCommand.despawnHorseToItem(player);
+//
+//            case "neuter":
+//                if (!player.hasPermission("betterhorses.neuter")) {
+//                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse neuter");
+//                    plugin.debugLog("HORSE_COMMAND", "NEUTER_PERMISSION", false,
+//                            "Player " + player.getName() + " lacks betterhorses.neuter");
+//                    return true;
+//                }
+//                return HorseNeuterCommand.handle(player);
 
             case "info":
                 if (!player.hasPermission(PermissionUtils.INFO)) {

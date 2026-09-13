@@ -15,9 +15,9 @@ public class HorseCommandCompleter implements TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> suggestions = new ArrayList<>();
-            if (sender.hasPermission(PermissionUtils.SPAWN_COMMAND)) suggestions.add("spawn");
-            if (sender.hasPermission(PermissionUtils.DESPAWN)) suggestions.add("despawn");
-            if (sender.hasPermission("betterhorses.neuter")) suggestions.add("neuter");
+            //if (sender.hasPermission(PermissionUtils.SPAWN_COMMAND)) suggestions.add("spawn");
+            //if (sender.hasPermission(PermissionUtils.DESPAWN)) suggestions.add("despawn");
+            //if (sender.hasPermission("betterhorses.neuter")) suggestions.add("neuter");
             if (sender.hasPermission("betterhorses.reload")) {
                 suggestions.add("reload");
             }
