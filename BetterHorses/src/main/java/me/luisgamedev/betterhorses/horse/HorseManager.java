@@ -30,6 +30,7 @@ public class HorseManager implements Listener {
     private HashMap<UUID, ItemStack> horseItems = new HashMap<>();
     private HashMap<UUID, UUID> playersBySpawnedHorseIds = new HashMap<>();
     private HashMap<BetterHorse, Double> speedAttributeCache = new HashMap<>();
+    private HashMap<BetterHorse, Double> jumpAttributeCache = new HashMap<>();
 
     private NamespacedKey horseItemKey = new NamespacedKey(BetterHorses.getInstance(), "horse_uuid");
     private NamespacedKey summonableAfterUnixKey = new NamespacedKey(BetterHorses.getInstance(), "summonable_after_unix");
@@ -124,6 +125,7 @@ public class HorseManager implements Listener {
         horseItems.remove(horseUuid);
         playersBySpawnedHorseIds.remove(horseUuid);
         speedAttributeCache.remove(horse);
+        jumpAttributeCache.remove(horse);
     }
 
     public void removeAllFromEntity() {
@@ -243,9 +245,12 @@ public class HorseManager implements Listener {
         updateTimeout(event.getEntity().getUniqueId());
 
         var cacheSpeed = betterHorse.getSpeed();
+        var cacheJump = betterHorse.getJump();
         speedAttributeCache.put(betterHorse, cacheSpeed);
+        jumpAttributeCache.put(betterHorse, cacheJump);
 
         betterHorse.setSpeed(0.06);
+        betterHorse.setJump(0);
     }
 
     @EventHandler
@@ -261,9 +266,12 @@ public class HorseManager implements Listener {
 
     private void disableSlowMode(BetterHorse betterHorse) {
         var cacheSpeed = speedAttributeCache.remove(betterHorse);
-        if (cacheSpeed == null) return;
+        var cacheJump = jumpAttributeCache.remove(betterHorse);
 
-        betterHorse.setSpeed(cacheSpeed);
+        if (cacheSpeed != null)
+            betterHorse.setSpeed(cacheSpeed);
+        if (cacheJump != null)
+            betterHorse.setJump(cacheJump);
     }
 
     @EventHandler
