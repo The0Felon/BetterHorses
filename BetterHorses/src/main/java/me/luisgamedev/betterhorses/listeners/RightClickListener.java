@@ -106,7 +106,7 @@ public class RightClickListener implements Listener {
             return;
         }
 
-        cooldowns.put(player.getUniqueId(), Bukkit.getCurrentTick() + 3 * 20);
+        cooldowns.put(player.getUniqueId(), (int) (Bukkit.getCurrentTick() + 1.8 * 20));
 
         AbstractHorse horse = BetterHorsesAPI.toHorse(item, player);
         if (horse == null) {

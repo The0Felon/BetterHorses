@@ -16,6 +16,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -107,7 +108,7 @@ public class HorseManager implements Listener {
         }
     }
 
-    private void removeHorse(UUID playerUuid) {
+    public void removeHorse(UUID playerUuid) {
         var horse = spawnedHorsesByPlayer.remove(playerUuid);
 
         if (horse == null) return;
@@ -117,7 +118,7 @@ public class HorseManager implements Listener {
         // DİKKAT: Burası önceki kodda silinmişti, at silindiğinde eşyanın güncellenmesi için ŞARTTIR.
         updateHorseItem(horse);
 
-        horse.getHandle().remove();
+        cleanupExistingHorse(horse, playerUuid);
 
         horseTimeouts.remove(playerUuid);
         horseItems.remove(horseUuid);
@@ -204,6 +205,27 @@ public class HorseManager implements Listener {
                 inventory.setItem(i, updatedItem);
                 break;
             }
+        }
+    }
+
+    /**
+     * Cleans up any horse this player is already tracked as owning before
+     * we spawn a fresh one. This is the actual fix for the "kicked out /
+     * bugged horse" symptom: previously a second spawn would silently
+     * overwrite the HorseManager mapping and leave the first horse entity
+     * alive, tamed, and ownerless in the world.
+     * <p>
+     * Adjust the HorseManager method names here to match your real API.
+     */
+    private void cleanupExistingHorse(BetterHorse horse, UUID playerUuid) {
+        var handle = horse.getHandle();
+
+        BetterHorses.getInstance().debugLog("API_CREATE_ITEM", "CLEANUP",
+                true, "Removing stale tracked horse for player with uuid " + playerUuid + " before respawning.");
+
+        if (handle.isValid()) {
+            handle.eject(); // make sure nobody is still sitting on it
+            handle.remove();
         }
     }
 

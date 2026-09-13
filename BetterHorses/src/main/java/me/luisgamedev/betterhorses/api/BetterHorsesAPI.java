@@ -12,12 +12,10 @@ import me.luisgamedev.betterhorses.utils.AttributeResolver;
 import me.luisgamedev.betterhorses.utils.HorseArmorUtils;
 import me.luisgamedev.betterhorses.utils.MountConfig;
 import me.luisgamedev.betterhorses.utils.SupportedMountType;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
+import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.AbstractHorse;
@@ -42,15 +40,159 @@ import java.lang.reflect.Method;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Base64;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BetterHorsesAPI {
+
+    // ------------------------------------------------------------------
+    // NEW: guards against two overlapping spawn attempts for one player
+    // (double item-click, duplicate event fire, async race, etc.)
+    // ------------------------------------------------------------------
+    private static final Set<UUID> SPAWNING = ConcurrentHashMap.newKeySet();
+
+    // ------------------------------------------------------------------
+    // NEW: reasons a spawn can be refused, exposed so callers (commands,
+    // listeners, item-use handlers) can show the player a real message
+    // instead of just silently failing.
+    // ------------------------------------------------------------------
+    public enum HorseSpawnBlockReason {
+        NONE,
+        PLAYER_OFFLINE,
+        PLAYER_DEAD,
+        SPECTATOR_MODE,
+        WORLD_UNAVAILABLE,
+        OUTSIDE_WORLD_BORDER,
+        CHUNK_NOT_LOADED,
+        MOUNT_TYPE_DISABLED,
+        SPAWN_ALREADY_IN_PROGRESS,
+        UNSAFE_LOCATION
+    }
+
+    public static final class HorseSpawnCheckResult {
+        private final boolean canSpawn;
+        private final HorseSpawnBlockReason reason;
+
+        private HorseSpawnCheckResult(boolean canSpawn, HorseSpawnBlockReason reason) {
+            this.canSpawn = canSpawn;
+            this.reason = reason;
+        }
+
+        public static HorseSpawnCheckResult ok() {
+            return new HorseSpawnCheckResult(true, HorseSpawnBlockReason.NONE);
+        }
+
+        public static HorseSpawnCheckResult blocked(HorseSpawnBlockReason reason) {
+            return new HorseSpawnCheckResult(false, reason);
+        }
+
+        public boolean canSpawn() {
+            return canSpawn;
+        }
+
+        public HorseSpawnBlockReason reason() {
+            return reason;
+        }
+    }
+
+    /**
+     * PUBLIC CHECKER — "can a horse be spawned for this player right now?"
+     * <p>
+     * Read-only: does not spawn anything, does not mutate state, safe to
+     * call speculatively from a listener/command before you even try.
+     * <p>
+     * Deliberately does NOT block on "player already has a tracked horse" —
+     * that case is handled by cleaning the stale horse up automatically in
+     * toHorse() below, since in practice it's a bug state to recover from,
+     * not a normal thing to reject the player for.
+     */
+    public static HorseSpawnCheckResult canSpawnHorse(@Nonnull Player player, @Nullable SupportedMountType mountType) {
+        if (!Bukkit.isPrimaryThread()) {
+            // World/chunk/block state isn't safe to read off the main thread.
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.WORLD_UNAVAILABLE);
+        }
+
+        if (!player.isOnline() || !player.isValid()) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.PLAYER_OFFLINE);
+        }
+
+        if (player.isDead()) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.PLAYER_DEAD);
+        }
+
+        if (player.getGameMode() == GameMode.SPECTATOR) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.SPECTATOR_MODE);
+        }
+
+        Location loc = player.getLocation();
+        World world = loc.getWorld();
+        if (world == null) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.WORLD_UNAVAILABLE);
+        }
+
+        if (!world.getWorldBorder().isInside(loc)) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.OUTSIDE_WORLD_BORDER);
+        }
+
+        if (!world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.CHUNK_NOT_LOADED);
+        }
+
+        if (mountType != null && !mountType.isEnabled(BetterHorses.getInstance().getConfig())) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.MOUNT_TYPE_DISABLED);
+        }
+
+        if (SPAWNING.contains(player.getUniqueId())) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.SPAWN_ALREADY_IN_PROGRESS);
+        }
+
+        if (!isSpawnLocationClear(loc)) {
+            return HorseSpawnCheckResult.blocked(HorseSpawnBlockReason.UNSAFE_LOCATION);
+        }
+
+        return HorseSpawnCheckResult.ok();
+    }
+
+    /**
+     * Checks a generic horse-family hitbox volume around `loc` for solid
+     * blocks, lava, or fire — inspired by RPGHorses' clear-space check, but
+     * generalized (not gated behind a version check or a config toggle) and
+     * extended to also reject lava/fire, since a horse spawning into either
+     * is just as "bugged" as spawning into a wall.
+     */
+    private static boolean isSpawnLocationClear(Location loc) {
+        World world = loc.getWorld();
+        if (world == null) return false;
+
+        // dirt path bypass
+        if (loc.getBlock().getType() == Material.DIRT_PATH)
+            return true;
+
+        // Generic adult horse-family hitbox is roughly 1.4 wide x 1.6 tall.
+        double halfWidth = 0.7;
+        double height = 1.6;
+
+        double minX = loc.getX() - halfWidth;
+        double maxX = loc.getX() + halfWidth;
+        double minZ = loc.getZ() - halfWidth;
+        double maxZ = loc.getZ() + halfWidth;
+        double minY = loc.getY();
+        double maxY = loc.getY() + height;
+
+        for (double x = minX; x <= maxX; x += 0.5) {
+            for (double y = minY; y <= maxY; y += 0.5) {
+                for (double z = minZ; z <= maxZ; z += 0.5) {
+                    Block block = new Location(world, x, y, z).getBlock();
+                    Material type = block.getType();
+                    if (type.isSolid() || type == Material.LAVA || type == Material.FIRE) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return !loc.getBlock().getType().isSolid();
+    }
 
     // Keep this for backwards compatibility, route it to the new overloaded method
     @Description("Creates a horseitem and either returns the ItemStack or directly puts it into the provided Inventory")
@@ -211,104 +353,140 @@ public class BetterHorsesAPI {
             return null;
         }
 
-        if (!undeadSkeleton && !mountType.isEnabled(BetterHorses.getInstance().getConfig())) {
+        // >>> NEW: run the full safety check before doing anything else.
+        HorseSpawnCheckResult check = canSpawnHorse(player, mountType);
+        if (!check.canSpawn()) {
+            BetterHorses.getInstance().debugLog("API_CREATE_HORSE", "BLOCKED", false,
+                    "Refused to spawn horse for " + player.getName() + ": " + check.reason());
             return null;
         }
 
-        AbstractHorse horse;
+        // >>> NEW: reentrancy guard — released in the finally block below.
+        if (!SPAWNING.add(player.getUniqueId())) {
+            return null;
+        }
+
         try {
-            horse = mountType.spawn(player.getLocation());
-        } catch (Exception e) {
-            return null;
-        }
-
-        if (horse == null || !horse.isValid()) {
-            return null;
-        }
-
-        double maxScale = BetterHorses.getInstance().getConfig().getDouble("horse-growth-settings.max-size", 1.3);
-        int threshold = BetterHorses.getInstance().getConfig().getInt("horse-growth-settings.ride-and-breed-threshhold", 7);
-        float minScale = (growthStage >= threshold) ? 0.85f : 0.7f;
-        double scale = minScale + ((maxScale - minScale) / 10.0) * growthStage;
-
-        if (MountConfig.isGrowthEnabled(BetterHorses.getInstance().getConfig(), mountType)) {
-            setAttribute(horse, Attribute.valueOf("SCALE"), scale);
-            if (growthStage >= threshold) {
-                horse.setAdult();
-                horse.setAgeLock(false);
-            } else {
-                horse.setBaby();
-                horse.setAgeLock(true);
+            if (!undeadSkeleton && !mountType.isEnabled(BetterHorses.getInstance().getConfig())) {
+                return null;
             }
-        }
 
-        horse.getPersistentDataContainer().set(BetterHorseKeys.GROWTH_STAGE, PersistentDataType.INTEGER, growthStage);
+            // >>> NEW: if the player is riding anything at all right now,
+            // >>> get them off it cleanly before we mount them on the new one.
+            if (player.isInsideVehicle()) {
+                player.leaveVehicle();
+            }
 
-        setAttribute(horse, AttributeResolver.generic("MAX_HEALTH"), health);
-        setAttribute(horse, AttributeResolver.generic("MOVEMENT_SPEED"), speed);
-        setAttribute(horse, Attribute.valueOf("HORSE_JUMP_STRENGTH"), jump);
-        horse.setHealth(currentHealth != null ? currentHealth : health);
-        horse.setTamed(true);
-        horse.setOwner((AnimalTamer) player);
-
-        horse.getInventory().setSaddle(new ItemStack(Material.SADDLE));
-
-        PersistentDataContainer horseData = horse.getPersistentDataContainer();
-        horseData.set(BetterHorseKeys.BASE_HEALTH, PersistentDataType.DOUBLE,
-                data.getOrDefault(BetterHorseKeys.BASE_HEALTH, PersistentDataType.DOUBLE, health));
-        horseData.set(BetterHorseKeys.BASE_SPEED, PersistentDataType.DOUBLE,
-                data.getOrDefault(BetterHorseKeys.BASE_SPEED, PersistentDataType.DOUBLE, speed));
-        horseData.set(BetterHorseKeys.BASE_JUMP, PersistentDataType.DOUBLE,
-                data.getOrDefault(BetterHorseKeys.BASE_JUMP, PersistentDataType.DOUBLE, jump));
-        horseData.set(BetterHorseKeys.TRAINING_RIDING_UNITS, PersistentDataType.DOUBLE,
-                data.getOrDefault(BetterHorseKeys.TRAINING_RIDING_UNITS, PersistentDataType.DOUBLE, 0.0));
-
-        horseData.set(BetterHorseKeys.OWNER, PersistentDataType.STRING, ownerUUID);
-        horseData.set(BetterHorseKeys.MOUNT_TYPE, PersistentDataType.STRING, mountType.getEntityType().name());
-        copyTextureData(data, horseData);
-        copyUndeadData(data, horseData);
-
-        if (trait != null && !trait.isBlank()) {
-            horseData.set(BetterHorseKeys.TRAIT, PersistentDataType.STRING, trait);
-        }
-        if (neutered != null && neutered == (byte) 1) {
-            horseData.set(BetterHorseKeys.NEUTERED, PersistentDataType.BYTE, (byte) 1);
-        }
-        if (cooldown != null) {
-            horseData.set(BetterHorseKeys.COOLDOWN, PersistentDataType.LONG, cooldown);
-        }
-
-        // custom name feature override
-
-        if (customName != null && !customName.isBlank()) {
-            customName = "§6" + player.getName() + " §7Atı";
-            horse.setCustomName(customName);
-            horse.setCustomNameVisible(true);
-        }
-
-        if (!undeadSkeleton && horse instanceof Horse h) {
+            AbstractHorse horse;
             try {
-                h.setStyle(Horse.Style.valueOf(styleStr));
-                h.setColor(Horse.Color.valueOf(colorStr));
-            } catch (Exception ignored) {
+                horse = mountType.spawn(player.getLocation());
+            } catch (Exception e) {
+                return null;
             }
-        }
 
-        if (saddleStr != null) {
-            horse.getInventory().setSaddle(new ItemStack(Material.valueOf(saddleStr)));
-        }
-        restoreChestContents(horse, chested != null && chested == (byte) 1, chestContents);
-        if (!undeadSkeleton && armorStr != null) {
-            ItemStack armorItem = restoreArmorItem(armorStr, armorData);
-            if (armorItem != null) {
-                HorseArmorUtils.setArmor(horse.getInventory(), armorItem);
+            if (horse == null || !horse.isValid()) {
+                return null;
             }
+
+            double maxScale = BetterHorses.getInstance().getConfig().getDouble("horse-growth-settings.max-size", 1.3);
+            int threshold = BetterHorses.getInstance().getConfig().getInt("horse-growth-settings.ride-and-breed-threshhold", 7);
+            float minScale = (growthStage >= threshold) ? 0.85f : 0.7f;
+            double scale = minScale + ((maxScale - minScale) / 10.0) * growthStage;
+
+            if (MountConfig.isGrowthEnabled(BetterHorses.getInstance().getConfig(), mountType)) {
+                setAttribute(horse, Attribute.valueOf("SCALE"), scale);
+                if (growthStage >= threshold) {
+                    horse.setAdult();
+                    horse.setAgeLock(false);
+                } else {
+                    horse.setBaby();
+                    horse.setAgeLock(true);
+                }
+            }
+
+            horse.getPersistentDataContainer().set(BetterHorseKeys.GROWTH_STAGE, PersistentDataType.INTEGER, growthStage);
+
+            setAttribute(horse, AttributeResolver.generic("MAX_HEALTH"), health);
+            setAttribute(horse, AttributeResolver.generic("MOVEMENT_SPEED"), speed);
+            setAttribute(horse, Attribute.valueOf("HORSE_JUMP_STRENGTH"), jump);
+            horse.setHealth(currentHealth != null ? currentHealth : health);
+            horse.setTamed(true);
+            horse.setOwner(player);
+
+            horse.setRemoveWhenFarAway(true);
+            horse.setPersistent(false);
+
+            horse.getInventory().setSaddle(new ItemStack(Material.SADDLE));
+
+            PersistentDataContainer horseData = horse.getPersistentDataContainer();
+            horseData.set(BetterHorseKeys.BASE_HEALTH, PersistentDataType.DOUBLE,
+                    data.getOrDefault(BetterHorseKeys.BASE_HEALTH, PersistentDataType.DOUBLE, health));
+            horseData.set(BetterHorseKeys.BASE_SPEED, PersistentDataType.DOUBLE,
+                    data.getOrDefault(BetterHorseKeys.BASE_SPEED, PersistentDataType.DOUBLE, speed));
+            horseData.set(BetterHorseKeys.BASE_JUMP, PersistentDataType.DOUBLE,
+                    data.getOrDefault(BetterHorseKeys.BASE_JUMP, PersistentDataType.DOUBLE, jump));
+            horseData.set(BetterHorseKeys.TRAINING_RIDING_UNITS, PersistentDataType.DOUBLE,
+                    data.getOrDefault(BetterHorseKeys.TRAINING_RIDING_UNITS, PersistentDataType.DOUBLE, 0.0));
+
+            horseData.set(BetterHorseKeys.OWNER, PersistentDataType.STRING, ownerUUID);
+            horseData.set(BetterHorseKeys.MOUNT_TYPE, PersistentDataType.STRING, mountType.getEntityType().name());
+            copyTextureData(data, horseData);
+            copyUndeadData(data, horseData);
+
+            if (trait != null && !trait.isBlank()) {
+                horseData.set(BetterHorseKeys.TRAIT, PersistentDataType.STRING, trait);
+            }
+            if (neutered != null && neutered == (byte) 1) {
+                horseData.set(BetterHorseKeys.NEUTERED, PersistentDataType.BYTE, (byte) 1);
+            }
+            if (cooldown != null) {
+                horseData.set(BetterHorseKeys.COOLDOWN, PersistentDataType.LONG, cooldown);
+            }
+
+            // custom name feature override
+
+            if (customName != null && !customName.isBlank()) {
+                customName = "§6" + player.getName() + " §7Atı";
+                horse.setCustomName(customName);
+                horse.setCustomNameVisible(true);
+            }
+
+            if (!undeadSkeleton && horse instanceof Horse h) {
+                try {
+                    h.setStyle(Horse.Style.valueOf(styleStr));
+                    h.setColor(Horse.Color.valueOf(colorStr));
+                } catch (Exception ignored) {
+                }
+            }
+
+            if (saddleStr != null) {
+                horse.getInventory().setSaddle(new ItemStack(Material.valueOf(saddleStr)));
+            }
+            restoreChestContents(horse, chested != null && chested == (byte) 1, chestContents);
+            if (!undeadSkeleton && armorStr != null) {
+                ItemStack armorItem = restoreArmorItem(armorStr, armorData);
+                if (armorItem != null) {
+                    HorseArmorUtils.setArmor(horse.getInventory(), armorItem);
+                }
+            }
+
+            // >>> NEW: final validity check right before mounting — spawn
+            // >>> can be silently cancelled/removed by another plugin
+            // >>> (region protection, anti-cheat, etc.) between the two
+            // >>> checks above and here.
+            if (!horse.isValid()) {
+                HorseManager.getInstance().removeHorse(player.getUniqueId());
+                return null;
+            }
+
+            horse.addPassenger(player);
+
+            HorseManager.getInstance().setHorse(player.getUniqueId(), horse, item);
+            return horse;
+        } finally {
+            // >>> NEW: always release the lock, even on early return/exception.
+            SPAWNING.remove(player.getUniqueId());
         }
-
-        horse.addPassenger(player);
-
-        HorseManager.getInstance().setHorse(player.getUniqueId(), horse, item);
-        return horse;
     }
 
     public static @Nullable ItemStack toItem(@Nonnull AbstractHorse horse, @Nullable Player ownerOverride, @Nullable String displayNameOverride) {
@@ -344,7 +522,11 @@ public class BetterHorsesAPI {
         TrainingManager.ensureBaseStats(horse);
 
         double maxHealth = horse.getAttribute(AttributeResolver.generic("MAX_HEALTH")).getBaseValue();
-        double currentHealth = horse.getHealth();
+        //double currentHealth = horse.getHealth();
+
+        @SuppressWarnings("UnnecessaryLocalVariable")
+        double currentHealth = maxHealth;
+
         double speed = horse.getAttribute(AttributeResolver.generic("MOVEMENT_SPEED")).getBaseValue();
         AttributeInstance jumpAttr = horse.getAttribute(Attribute.valueOf("HORSE_JUMP_STRENGTH"));
         double jump = jumpAttr != null ? jumpAttr.getBaseValue() : 0.0;
